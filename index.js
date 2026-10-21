@@ -21,6 +21,7 @@ let connectedNumber = '';
 // Dashboard log: ke message dilo, ki bollo, bot ki reply dilo, kokhon
 let messageLog = [];
 let orderLog = [];
+let debugLog = [];
 let orderSeq = 0;
 function logMsg(from, text, reply) {
   messageLog.unshift({ time: new Date().toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' }), from, text, reply });
@@ -74,7 +75,9 @@ async function startBot() {
       if (shouldReconnect) setTimeout(startBot, 3000); else console.log('Logged out — delete auth_info and scan QR again.');
     }
   });
-  sock.ev.on('messages.upsert', async ({ messages }) => {
+  sock.ev.on('messages.upsert', async ({ messages, type }) => {
+    debugLog.unshift({ time: new Date().toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' }), type, count: messages.length, keys: messages.map(m => ({ jid: m.key.remoteJid, fromMe: m.key.fromMe, hasMsg: !!m.message, msgKeys: m.message ? Object.keys(m.message) : [] })) });
+    if (debugLog.length > 50) debugLog.pop();
     for (const m of messages) {
       if (!m.message || m.key.fromMe) continue;
       const jid = m.key.remoteJid || '';
@@ -107,7 +110,7 @@ app.get('/', (_req, res) => {
   </body></html>`);
 });
 app.get('/status', (_req, res) => res.json({ connected, number: connectedNumber, hasQr: !!latestQr }));
-app.get('/api/messages', (_req, res) => res.json({ connected, number: connectedNumber, messages: messageLog, orders: orderLog, customers: customers(), products: PRODUCTS }));
+app.get('/api/messages', (_req, res) => res.json({ connected, number: connectedNumber, messages: messageLog, orders: orderLog, customers: customers(), products: PRODUCTS, debug: debugLog }));
 app.get('/api/orders', (_req, res) => res.json({ orders: orderLog }));
 app.get('/dashboard', (_req, res) => {
   res.send(`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Shifa Bazar BD — Premium Dashboard</title>
