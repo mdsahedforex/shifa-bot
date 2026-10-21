@@ -143,11 +143,14 @@ app.post('/pair', async (req, res) => {
   if (!sock) return res.status(503).json({ ok: false, error: 'Bot ekhono start hoy nai' });
   const { number } = req.body || {};
   if (!number) return res.status(400).json({ error: 'number required, jemon 8801XXXXXXXXX' });
+  const clean = String(number).replace(/\D/g, '');
   try {
-    const code = await sock.requestPairingCode(String(number).replace(/\D/g, ''));
-    res.json({ ok: true, code, number: String(number) });
+    const code = await sock.requestPairingCode(clean);
+    res.json({ ok: true, code, number: clean });
   } catch (e) {
-    res.status(500).json({ ok: false, error: String(e) });
+    // Connection Closed hole socket ta abar start kore ekbar retry koro
+    try { await startBot(); await new Promise(r => setTimeout(r, 5000)); const code2 = await sock.requestPairingCode(clean); res.json({ ok: true, code: code2, number: clean }); }
+    catch (e2) { res.status(500).json({ ok: false, error: String(e2) }); }
   }
 });
 app.get('/pair-status', (_req, res) => res.json({ connected, number: connectedNumber }));
