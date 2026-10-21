@@ -62,7 +62,7 @@ function pickReply(text) {
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState('auth_info');
-  sock = makeWASocket({ auth: state, logger: pino({ level: 'silent' }), printQRInTerminal: false });
+  sock = makeWASocket({ auth: state, logger: pino({ level: 'silent' }), printQRInTerminal: false, syncFullHistory: false, markOnlineOnConnect: false, generateHighQualityLinkPreview: false, getMessage: async () => undefined });
   sock.ev.on('creds.update', saveCreds);
   sock.ev.on('connection.update', async (u) => {
     const { connection, lastDisconnect, qr } = u;
