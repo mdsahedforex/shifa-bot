@@ -1,0 +1,15 @@
+# Engine — Render e 1-click deploy (free tier)
+# Eita diye bot engine (Baileys) Render e cholbe, kono Agent/PC/Docker lagbe na.
+# Deploy korar por: Render er link kholo -> number dao -> code nao ->
+# WhatsApp > Linked Devices > Link with phone number e code bosao -> connected.
+services:
+  - type: web
+    name: shifa-bazar-bot-engine
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node index.js
+    healthCheckPath: /status
+    envVars:
+      - key: PORT
+        value: 10000
