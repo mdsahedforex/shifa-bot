@@ -20,9 +20,24 @@ let connected = false;
 let connectedNumber = '';
 // Dashboard log: ke message dilo, ki bollo, bot ki reply dilo, kokhon
 let messageLog = [];
+let orderLog = [];
+let orderSeq = 0;
 function logMsg(from, text, reply) {
   messageLog.unshift({ time: new Date().toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' }), from, text, reply });
   if (messageLog.length > 100) messageLog.pop();
+  // Order hole order list e o rakho: order / kinte / chai + product thakle
+  const t = (text || '').toLowerCase();
+  if (t.includes('order') || t.includes('kinte') || t.includes('chai') || t.includes('অর্ডার') || t.includes('kinbo')) {
+    orderSeq++;
+    orderLog.unshift({ id: 'SB-' + String(orderSeq).padStart(4, '0'), time: new Date().toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' }), from, text, status: 'pending' });
+    if (orderLog.length > 100) orderLog.pop();
+  }
+}
+const PRODUCTS = ['Taja shobji o fol', 'Dudh-dim', 'Khanti ghi o bhojjo tel', 'Moshla', 'Khanti madhu', 'Khejur o badam', 'Chal-dal (daily essentials)', 'Ghore toiri achar-chatni'];
+function customers() {
+  const seen = new Map();
+  for (const m of messageLog) if (!seen.has(m.from)) seen.set(m.from, m);
+  return [...seen.values()];
 }
 
 // --- Same Shifa Bazar BD rules as the Vercel panel ---
@@ -92,15 +107,22 @@ app.get('/', (_req, res) => {
   </body></html>`);
 });
 app.get('/status', (_req, res) => res.json({ connected, number: connectedNumber, hasQr: !!latestQr }));
-app.get('/api/messages', (_req, res) => res.json({ connected, number: connectedNumber, messages: messageLog }));
+app.get('/api/messages', (_req, res) => res.json({ connected, number: connectedNumber, messages: messageLog, orders: orderLog, customers: customers(), products: PRODUCTS }));
+app.get('/api/orders', (_req, res) => res.json({ orders: orderLog }));
 app.get('/dashboard', (_req, res) => {
   res.send(`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Shifa Bazar — Dashboard</title>
-  <style>body{font-family:system-ui,sans-serif;max-width:700px;margin:0 auto;padding:20px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ddd;padding:8px;text-align:left;font-size:14px}.ok{color:green}.no{color:red}</style></head><body>
-  <h1>🛒 Shifa Bazar BD — Dashboard</h1><p id="st"></p>
-  <button onclick="load()">Refresh</button>
-  <table><thead><tr><th> somoy </th><th>Ke (number)</th><th>Ki bollo</th><th>Bot ki reply dilo</th></tr></thead><tbody id="rows"></tbody></table>
+  <style>body{font-family:system-ui,sans-serif;max-width:760px;margin:0 auto;padding:20px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ddd;padding:8px;text-align:left;font-size:14px}.ok{color:green}.no{color:red}.card{border:1px solid #ddd;border-radius:12px;padding:12px;margin:10px 0}button{background:#00a884;border:0;color:#fff;border-radius:8px;padding:10px 16px;cursor:pointer}input{padding:10px;border-radius:8px;border:1px solid #ccc;width:100%;box-sizing:border-box;margin:4px 0}</style></head><body>
+  <h1>🛒 Shifa Bazar BD — Software</h1><p id="st"></p><p>24/7 khola • Delivery FREE • COD + bKash • Shop: shifabazarbd.com</p>
+  <div class="card"><b>📊 Stats</b><p id="stats"></p></div>
+  <div class="card"><b>📦 Products</b><ul id="prods"></ul><p style="font-size:13px;color:#55665c">Dam: product er naam bolle bot dam jiggesh kore, karon site e exact price list chilo na.</p></div>
+  <div class="card"><b>📩 Customer ke message pathao</b><input id="sn" placeholder="Customer number, jemon 8801XXXXXXXXX"><input id="stext" placeholder="Message likho..."><button onclick="sendMsg()">Pathao</button><p id="sendOut"></p></div>
+  <div class="card"><b>🧾 Orders</b><table><thead><tr><th>ID</th><th>Somoy</th><th>Ke</th><th>Order message</th><th>Status</th></tr></thead><tbody id="orows"></tbody></table></div>
+  <div class="card"><b>👥 Customers</b><ul id="custs"></ul></div>
+  <div class="card"><b>💬 Sob message</b><button onclick="load()">Refresh</button><table><thead><tr><th>Somoy</th><th>Ke (number)</th><th>Ki bollo</th><th>Bot ki reply dilo</th></tr></thead><tbody id="rows"></tbody></table></div>
   <p style="color:#55665c;font-size:13px">Note: Render free te service ghumale / restart hole purono log muche jete pare — eta live log, permanent database na.</p>
-  <script>async function load(){const r=await fetch('/api/messages');const j=await r.json();document.getElementById('st').innerHTML=j.connected?'<b class="ok">✅ Connected: '+j.number+'</b>':'<b class="no">❌ Connected na</b>';document.getElementById('rows').innerHTML=j.messages.length?j.messages.map(m=>'<tr><td>'+m.time+'</td><td>'+m.from+'</td><td>'+m.text+'</td><td>'+m.reply+'</td></tr>').join(''):'<tr><td colspan=4>Ekono kono message ashe nai.</td></tr>';}load();setInterval(load,15000);</script>
+  <script>async function load(){const r=await fetch('/api/messages');const j=await r.json();document.getElementById('st').innerHTML=j.connected?'<b class="ok">✅ Connected: '+j.number+'</b>':'<b class="no">❌ Connected na — age link koro</b>';document.getElementById('stats').textContent='Message: '+j.messages.length+' • Order: '+j.orders.length+' • Customer: '+j.customers.length;document.getElementById('prods').innerHTML=j.products.map(p=>'<li>'+p+'</li>').join('');document.getElementById('custs').innerHTML=j.customers.length?j.customers.map(c=>'<li>'+c.from+' — sesh message: '+c.text+'</li>').join(''):'<li>Ekono keu message dey nai.</li>';document.getElementById('orows').innerHTML=j.orders.length?j.orders.map(o=>'<tr><td>'+o.id+'</td><td>'+o.time+'</td><td>'+o.from+'</td><td>'+o.text+'</td><td>'+o.status+'</td></tr>').join(''):'<tr><td colspan=5>Ekono kono order ashe nai.</td></tr>';document.getElementById('rows').innerHTML=j.messages.length?j.messages.map(m=>'<tr><td>'+m.time+'</td><td>'+m.from+'</td><td>'+m.text+'</td><td>'+m.reply+'</td></tr>').join(''):'<tr><td colspan=4>Ekono kono message ashe nai.</td></tr>';}
+  async function sendMsg(){const n=document.getElementById('sn').value.trim(),t=document.getElementById('stext').value.trim(),o=document.getElementById('sendOut');if(!n||!t){o.textContent='Number ar message 2 tai dao.';return;}const r=await fetch('/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({number:n,text:t})});const j=await r.json();o.textContent=j.ok?'✅ Pathano hoyeche.':('❌ '+(j.error||'Hoy nai'));load();}
+  load();setInterval(load,15000);</script>
   </body></html>`);
 });
 app.get('/qr', async (_req, res) => {
