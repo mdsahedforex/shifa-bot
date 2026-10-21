@@ -63,7 +63,8 @@ function pickReply(text) {
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState('auth_info');
-  sock = makeWASocket({ auth: state, logger: pino({ level: 'silent' }), printQRInTerminal: false, syncFullHistory: false, markOnlineOnConnect: true });
+  const retryCache = new Map();
+  sock = makeWASocket({ auth: state, logger: pino({ level: 'silent' }), printQRInTerminal: false, syncFullHistory: false, markOnlineOnConnect: true, retryRequestDelayMs: 5000, msgRetryCounterCache: { get: (k) => retryCache.get(k), set: (k, v) => retryCache.set(k, v), del: (k) => retryCache.delete(k) } });
   sock.ev.on('creds.update', saveCreds);
   sock.ev.on('connection.update', async (u) => {
     const { connection, lastDisconnect, qr } = u;
