@@ -18,6 +18,12 @@ let sock = null;
 let latestQr = null;
 let connected = false;
 let connectedNumber = '';
+// Dashboard log: ke message dilo, ki bollo, bot ki reply dilo, kokhon
+let messageLog = [];
+function logMsg(from, text, reply) {
+  messageLog.unshift({ time: new Date().toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' }), from, text, reply });
+  if (messageLog.length > 100) messageLog.pop();
+}
 
 // --- Same Shifa Bazar BD rules as the Vercel panel ---
 const RULES = [
@@ -60,8 +66,10 @@ async function startBot() {
       if (!jid.endsWith('@s.whatsapp.net')) continue;
       const text = m.message.conversation || m.message.extendedTextMessage?.text || '';
       if (!text) continue;
+      const reply = pickReply(text);
+      logMsg(jid.replace('@s.whatsapp.net', ''), text, reply);
       await new Promise(r => setTimeout(r, 1200));
-      await sock.sendMessage(jid, { text: pickReply(text) });
+      await sock.sendMessage(jid, { text: reply });
     }
   });
 }
@@ -70,6 +78,7 @@ app.get('/', (_req, res) => {
   res.send(`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Shifa Bazar BD — WhatsApp Connect</title>
   <style>body{font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;padding:20px;text-align:center}button{background:#00a884;border:0;color:#fff;border-radius:10px;padding:14px 22px;font-size:17px;cursor:pointer}img{max-width:280px;width:100%}.note{color:#55665c;font-size:14px;line-height:1.6}</style></head><body>
   <h1>🛒 Shifa Bazar BD</h1><h2>📱 WhatsApp Connect Korun</h2>
+  <p><a href="/dashboard">📊 Dashboard dekho — ke message dilo, bot ki reply dilo</a></p>
   <p class="note">Button chaple QR asbe. Phone er WhatsApp &gt; Linked Devices &gt; Link a Device diye scan koro. Connect hoye gele bot nije message handle korbe — 24/7, delivery FREE, COD + bKash.</p>
   <button onclick="loadQr()">📱 WhatsApp Connect Korun (QR)</button>
   <p class="note" style="margin-top:16px"><b>QR chara, number diye connect korte chaile:</b><br>Number dao, code nao, tarpor WhatsApp &gt; Linked Devices &gt; Link with phone number e code ta bosao.</p>
@@ -82,6 +91,17 @@ app.get('/', (_req, res) => {
   </body></html>`);
 });
 app.get('/status', (_req, res) => res.json({ connected, number: connectedNumber, hasQr: !!latestQr }));
+app.get('/api/messages', (_req, res) => res.json({ connected, number: connectedNumber, messages: messageLog }));
+app.get('/dashboard', (_req, res) => {
+  res.send(`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Shifa Bazar — Dashboard</title>
+  <style>body{font-family:system-ui,sans-serif;max-width:700px;margin:0 auto;padding:20px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ddd;padding:8px;text-align:left;font-size:14px}.ok{color:green}.no{color:red}</style></head><body>
+  <h1>🛒 Shifa Bazar BD — Dashboard</h1><p id="st"></p>
+  <button onclick="load()">Refresh</button>
+  <table><thead><tr><th> somoy </th><th>Ke (number)</th><th>Ki bollo</th><th>Bot ki reply dilo</th></tr></thead><tbody id="rows"></tbody></table>
+  <p style="color:#55665c;font-size:13px">Note: Render free te service ghumale / restart hole purono log muche jete pare — eta live log, permanent database na.</p>
+  <script>async function load(){const r=await fetch('/api/messages');const j=await r.json();document.getElementById('st').innerHTML=j.connected?'<b class="ok">✅ Connected: '+j.number+'</b>':'<b class="no">❌ Connected na</b>';document.getElementById('rows').innerHTML=j.messages.length?j.messages.map(m=>'<tr><td>'+m.time+'</td><td>'+m.from+'</td><td>'+m.text+'</td><td>'+m.reply+'</td></tr>').join(''):'<tr><td colspan=4>Ekono kono message ashe nai.</td></tr>';}load();setInterval(load,15000);</script>
+  </body></html>`);
+});
 app.get('/qr', async (_req, res) => {
   if (connected) return res.json({ connected: true, number: connectedNumber });
   if (!latestQr) return res.json({ connected: false, qr: null });
