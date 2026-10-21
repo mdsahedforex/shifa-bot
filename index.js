@@ -63,11 +63,12 @@ async function startBot() {
     for (const m of messages) {
       if (!m.message || m.key.fromMe) continue;
       const jid = m.key.remoteJid || '';
-      if (!jid.endsWith('@s.whatsapp.net')) continue;
+      // WhatsApp ekhon onek somoy @lid dey, @s.whatsapp.net na — tai suffix diye filter korbo na
+      if (!jid || jid === 'status@broadcast') continue;
       const text = m.message.conversation || m.message.extendedTextMessage?.text || '';
       if (!text) continue;
       const reply = pickReply(text);
-      logMsg(jid.replace('@s.whatsapp.net', ''), text, reply);
+      logMsg(jid, text, reply);
       await new Promise(r => setTimeout(r, 1200));
       await sock.sendMessage(jid, { text: reply });
     }
